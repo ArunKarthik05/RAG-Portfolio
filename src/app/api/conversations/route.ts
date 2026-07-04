@@ -14,6 +14,13 @@ import { authOptions } from "@/lib/auth";
 const BACKEND = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const INTERNAL_KEY = process.env.INTERNAL_API_KEY ?? "";
 
+// Debug — remove once working
+if (!INTERNAL_KEY) {
+  console.error("[conversations proxy] INTERNAL_API_KEY is not set in frontend env — requests to backend will be rejected with 403");
+} else {
+  console.log(`[conversations proxy] INTERNAL_API_KEY loaded (len=${INTERNAL_KEY.length})`);
+}
+
 function backendHeaders(userId: string) {
   return {
     "Content-Type": "application/json",
