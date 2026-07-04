@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Arun Karthik — AI Portfolio",
   description:
-    "Ask anything about Arun Karthik. Powered by a RAG model trained on his GitHub, LinkedIn, calendar, and resume.",
+    "Ask anything about Arun Karthik. Powered by a RAG model trained on his GitHub, LinkedIn, calendar.",
   openGraph: {
     title: "Arun Karthik — AI Portfolio",
     description: "An AI assistant that knows Arun's work, projects, and availability.",

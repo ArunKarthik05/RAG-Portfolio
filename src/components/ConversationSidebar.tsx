@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import { MessageSquare, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { MessageSquare, Plus, Trash2, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// All conversation API calls go through the Next.js proxy (/api/conversations/...)
+// which verifies the NextAuth session server-side before forwarding to the backend.
+// The client NEVER calls the FastAPI backend directly for conversations.
 
 export interface Conversation {
   id: string;
@@ -18,15 +20,20 @@ interface Props {
   onSelect: (id: string) => void;
   onNew: () => void;
   refreshTrigger?: number;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-export function ConversationSidebar({ userId, activeConversationId, onSelect, onNew, refreshTrigger }: Props) {
+export function ConversationSidebar({
+  userId, activeConversationId, onSelect, onNew, refreshTrigger,
+  mobileOpen = false, onMobileClose,
+}: Props) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
-    fetch(`${API_URL}/conversations/?user_id=${encodeURIComponent(userId)}`)
+    fetch("/api/conversations")
       .then((r) => r.json())
       .then(setConversations)
       .catch(() => {});
@@ -34,43 +41,53 @@ export function ConversationSidebar({ userId, activeConversationId, onSelect, on
 
   const deleteConv = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    await fetch(`${API_URL}/conversations/${id}`, { method: "DELETE" });
+    await fetch(`/api/conversations/${id}`, { method: "DELETE" });
     setConversations((cs) => cs.filter((c) => c.id !== id));
     if (activeConversationId === id) onNew();
   };
 
+  const handleSelect = (id: string) => { onSelect(id); onMobileClose?.(); };
+  const handleNew = () => { onNew(); onMobileClose?.(); };
+
   if (!userId) return null;
 
-  return (
-    <div
-      className={cn("flex flex-col h-full shrink-0 transition-all duration-300", collapsed ? "w-12" : "w-60")}
-      style={{ background: "#f0ebe5", borderRight: "1px solid #e0d8d0" }}
-    >
+  const panelContent = (isMobile: boolean) => (
+    <div className="flex flex-col h-full" style={{ background: "#f0ebe5" }}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-4 shrink-0">
-        {!collapsed && (
+        {(isMobile || !collapsed) && (
           <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#9e8876" }}>
             Conversations
           </span>
         )}
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all ml-auto"
-          style={{ color: "#9e8876" }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#fff2ec"; (e.currentTarget as HTMLElement).style.color = "#e85c2a"; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#9e8876"; }}
-        >
-          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
+        {isMobile ? (
+          <button
+            onClick={onMobileClose}
+            className="w-7 h-7 rounded-lg flex items-center justify-center ml-auto"
+            style={{ color: "#9e8876" }}
+          >
+            <X size={16} />
+          </button>
+        ) : (
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all ml-auto"
+            style={{ color: "#9e8876" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#fff2ec"; (e.currentTarget as HTMLElement).style.color = "#e85c2a"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#9e8876"; }}
+          >
+            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
+        )}
       </div>
 
       {/* New conversation */}
       <div className="px-2 mb-2 shrink-0">
         <button
-          onClick={onNew}
+          onClick={handleNew}
           className={cn(
             "flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm transition-all",
-            collapsed && "justify-center px-0"
+            !isMobile && collapsed && "justify-center px-0"
           )}
           style={{ border: "1px solid rgba(232,92,42,0.25)", color: "#e85c2a", background: "#fff5f0" }}
           onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#fff2ec"}
@@ -78,7 +95,7 @@ export function ConversationSidebar({ userId, activeConversationId, onSelect, on
           title="New conversation"
         >
           <Plus size={14} className="shrink-0" />
-          {!collapsed && <span className="font-medium">New conversation</span>}
+          {(isMobile || !collapsed) && <span className="font-medium">New conversation</span>}
         </button>
       </div>
 
@@ -89,10 +106,10 @@ export function ConversationSidebar({ userId, activeConversationId, onSelect, on
           return (
             <button
               key={conv.id}
-              onClick={() => onSelect(conv.id)}
+              onClick={() => handleSelect(conv.id)}
               className={cn(
                 "group flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-left transition-all",
-                collapsed && "justify-center px-0"
+                !isMobile && collapsed && "justify-center px-0"
               )}
               style={{
                 background: isActive ? "#fff2ec" : "transparent",
@@ -103,7 +120,7 @@ export function ConversationSidebar({ userId, activeConversationId, onSelect, on
               title={conv.title ?? "Untitled"}
             >
               <MessageSquare size={13} className="shrink-0 opacity-60" />
-              {!collapsed && (
+              {(isMobile || !collapsed) && (
                 <>
                   <span className="flex-1 text-xs truncate">{conv.title ?? "Untitled"}</span>
                   <button
@@ -122,5 +139,37 @@ export function ConversationSidebar({ userId, activeConversationId, onSelect, on
         })}
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <div
+        className={cn(
+          "hidden sm:flex flex-col h-full shrink-0 transition-all duration-300",
+          collapsed ? "w-12" : "w-60"
+        )}
+        style={{ borderRight: "1px solid #e0d8d0" }}
+      >
+        {panelContent(false)}
+      </div>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 sm:hidden"
+            style={{ background: "rgba(0,0,0,0.4)" }}
+            onClick={onMobileClose}
+          />
+          <div
+            className="fixed top-0 left-0 h-full z-50 w-72 sm:hidden"
+            style={{ borderRight: "1px solid #e0d8d0" }}
+          >
+            {panelContent(true)}
+          </div>
+        </>
+      )}
+    </>
   );
 }

@@ -5,10 +5,8 @@ import { signOut } from "next-auth/react";
 import { ChatInterface } from "@/components/ChatInterface";
 import { AuthModal } from "@/components/AuthModal";
 import { ConversationSidebar } from "@/components/ConversationSidebar";
-import { Github, Linkedin, Mail, Sparkles, LogOut, User, MessageSquareDot } from "lucide-react";
+import { Github, Linkedin, Mail, Sparkles, LogOut, User, MessageSquareDot, Menu } from "lucide-react";
 import Link from "next/link";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -16,6 +14,7 @@ export default function Home() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [chatKey, setChatKey] = useState(0);
   const [sidebarRefresh, setSidebarRefresh] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const userId = session?.user?.email ?? null;
   const authVisible = status !== "loading" && !session && !isGuest;
@@ -24,10 +23,11 @@ export default function Home() {
   const createConversation = useCallback(async (): Promise<string | null> => {
     if (!userId) return null;
     try {
-      const res = await fetch(`${API_URL}/conversations/`, {
+      // Goes through /api/conversations which verifies the session server-side
+      const res = await fetch("/api/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, is_guest: false }),
+        body: JSON.stringify({ is_guest: false }),
       });
       const data = await res.json();
       return data.id ?? null;
@@ -54,24 +54,36 @@ export default function Home() {
 
       {/* Header */}
       <header
-        className="shrink-0 z-10 flex items-center justify-between px-6 py-3"
+        className="shrink-0 z-10 flex items-center justify-between px-3 sm:px-6 py-3"
         style={{ background: "#ffffff", borderBottom: "1px solid #ede8e2" }}
       >
-        {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center glow-purple"
-            style={{ background: "linear-gradient(135deg,#e85c2a,#f07a50)" }}
-          >
-            <Sparkles size={14} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-wide" style={{ color: "#1a1209" }}>Arun Karthik</h1>
-            <p className="text-[11px]" style={{ color: "#9e8876" }}>AI Portfolio · Ask me anything</p>
+        {/* Left: hamburger (mobile, signed-in only) + brand */}
+        <div className="flex items-center gap-2">
+          {userId && (
+            <button
+              className="sm:hidden w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ color: "#9e8876" }}
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open conversations"
+            >
+              <Menu size={18} />
+            </button>
+          )}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center glow-purple"
+              style={{ background: "linear-gradient(135deg,#e85c2a,#f07a50)" }}
+            >
+              <Sparkles size={14} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-sm font-bold tracking-wide" style={{ color: "#1a1209" }}>Arun Karthik</h1>
+              <p className="hidden sm:block text-[11px]" style={{ color: "#9e8876" }}>AI Portfolio · Ask me anything</p>
+            </div>
           </div>
         </div>
 
-        {/* Center — Testimonials glowing pill */}
+        {/* Center: Testimonials pill — full on desktop, compact on mobile */}
         <Link
           href="/testimonials"
           className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95"
@@ -84,30 +96,43 @@ export default function Home() {
           Testimonials
         </Link>
 
-        {/* Right actions */}
+        {/* Right: social links + auth */}
         <div className="flex items-center gap-1">
-          {[
-            { href: "https://github.com/ArunKarthik05", icon: Github, label: "GitHub" },
-            { href: "https://www.linkedin.com/in/arun-karthik-3b08b5218/", icon: Linkedin, label: "LinkedIn" },
-            { href: "mailto:ak05032k2@gmail.com", icon: Mail, label: "Email" },
-          ].map(({ href, icon: Icon, label }) => (
-            <a
-              key={label}
-              href={href}
-              target={href.startsWith("http") ? "_blank" : undefined}
-              rel="noopener noreferrer"
-              aria-label={label}
-              className="p-2 rounded-lg transition-all"
-              style={{ color: "#9e8876" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#e85c2a"; (e.currentTarget as HTMLElement).style.background = "#fff2ec"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#9e8876"; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-            >
-              <Icon size={15} />
-            </a>
-          ))}
+          {/* Social links — desktop only */}
+          <div className="hidden sm:flex items-center gap-1">
+            {[
+              { href: "https://github.com/ArunKarthik05", icon: Github, label: "GitHub" },
+              { href: "https://www.linkedin.com/in/arun-karthik-3b08b5218/", icon: Linkedin, label: "LinkedIn" },
+              { href: "mailto:ak05032k2@gmail.com", icon: Mail, label: "Email" },
+            ].map(({ href, icon: Icon, label }) => (
+              <a
+                key={label}
+                href={href}
+                target={href.startsWith("http") ? "_blank" : undefined}
+                rel="noopener noreferrer"
+                aria-label={label}
+                className="p-2 rounded-lg transition-all"
+                style={{ color: "#9e8876" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#e85c2a"; (e.currentTarget as HTMLElement).style.background = "#fff2ec"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#9e8876"; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <Icon size={15} />
+              </a>
+            ))}
+          </div>
+
+          {/* Mobile: compact reviews pill */}
+          <Link
+            href="/testimonials"
+            className="sm:hidden flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold text-white"
+            style={{ background: "linear-gradient(135deg,#e85c2a,#f07a50)" }}
+          >
+            <MessageSquareDot size={12} />
+            Reviews
+          </Link>
 
           {session && (
-            <div className="flex items-center gap-2 ml-1 pl-2" style={{ borderLeft: "1px solid #ede8e2" }}>
+            <div className="flex items-center gap-1.5 ml-1 pl-2" style={{ borderLeft: "1px solid #ede8e2" }}>
               {session.user?.image ? (
                 <img src={session.user.image} alt="avatar"
                   className="w-7 h-7 rounded-full" style={{ border: "2px solid rgba(232,92,42,0.3)" }} />
@@ -140,8 +165,10 @@ export default function Home() {
           onSelect={(id) => { setActiveConversationId(id); setChatKey((k) => k + 1); }}
           onNew={() => { setActiveConversationId(null); setChatKey((k) => k + 1); }}
           refreshTrigger={sidebarRefresh}
+          mobileOpen={sidebarOpen}
+          onMobileClose={() => setSidebarOpen(false)}
         />
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden min-w-0">
           <ChatInterface
             key={chatKey}
             sourceFilter={{ source_types: null, repo_filter: null }}

@@ -2,8 +2,9 @@
  * Server-side proxy for GitHub admin endpoints.
  * Injects ADMIN_API_KEY (server-side env) so it never leaks to the client.
  *
- * GET  /api/admin/github        → GET  /admin/github/repos
- * POST /api/admin/github        → POST /admin/github/ingest  { repo_names: [...] }
+ * GET    /api/admin/github  → GET  /admin/github/repos
+ * POST   /api/admin/github  → POST /admin/github/ingest      { repo_names: [...] }
+ * DELETE /api/admin/github  → POST /admin/github/bulk-delete { repo_names: [...] }
  */
 import { NextRequest, NextResponse } from "next/server";
 
@@ -21,6 +22,17 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const res = await fetch(`${API_URL}/admin/github/ingest`, {
+    method: "POST",
+    headers: HEADERS,
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  return NextResponse.json(data, { status: res.status });
+}
+
+export async function DELETE(req: NextRequest) {
+  const body = await req.json();
+  const res = await fetch(`${API_URL}/admin/github/bulk-delete`, {
     method: "POST",
     headers: HEADERS,
     body: JSON.stringify(body),
