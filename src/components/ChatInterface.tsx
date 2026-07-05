@@ -24,11 +24,32 @@ interface Message {
   streaming?: boolean;
 }
 
+function normalizeSources(content: string): string {
+  // 1. Strip [[SOURCE N]](any-url) double-bracket wrappers the LLM emits
+  let out = content.replace(/\[\[SOURCE (\d+)\]\]\([^)]*\)/g, "[SOURCE $1]");
+
+  // 2. Strip single-bracket file:// wrappers: [SOURCE N](file://...) → [SOURCE N]
+  out = out.replace(/\[SOURCE (\d+)\]\(file:\/\/[^)]*\)/g, "[SOURCE $1]");
+
+  // 3. Expand any [SOURCE <anything>] by extracting all digit groups.
+  //    Handles: [SOURCE 2, SOURCE 5], [SOURCE 2, 5], [SOURCE 2,5]
+  out = out.replace(/\[SOURCE ([^\]]+)\]/g, (_match, inner: string) => {
+    const nums = [...inner.matchAll(/\d+/g)].map((m) => m[0]);
+    if (nums.length === 0) return _match;
+    return nums.map((n) => `[SOURCE ${n}]`).join(" ");
+  });
+
+  return out;
+}
+
 function linkifySources(content: string, citations: CitationChunk[]): string {
-  return content.replace(/\[SOURCE (\d+)\]/g, (match, num) => {
+  const normalized = normalizeSources(content);
+  // Always produce a markdown link so the `a` renderer fires for every [SOURCE N].
+  // Sources without a real URL get href="#" (badge renders but doesn't navigate).
+  return normalized.replace(/\[SOURCE (\d+)\]/g, (match, num) => {
     const idx = parseInt(num, 10) - 1;
     const url = citations[idx]?.source_url;
-    return url ? `[${match}](${url})` : match;
+    return `[${match}](${url || "#"})`;
   });
 }
 
@@ -378,16 +399,24 @@ export function ChatInterface({
                             a: ({ href, children }) => {
                               const label = String(children);
                               const isSource = label.startsWith("[SOURCE");
-                              return isSource ? (
-                                <a href={href} target="_blank" rel="noopener noreferrer" className="no-underline">
+                              if (isSource) {
+                                const badge = (
                                   <span
-                                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold cursor-pointer transition-all hover:opacity-80"
+                                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold transition-all hover:opacity-80"
                                     style={{ background: "rgba(232,92,42,0.12)", color: "#c04a18", border: "1px solid rgba(232,92,42,0.3)" }}
                                   >
                                     {label}
                                   </span>
-                                </a>
-                              ) : (
+                                );
+                                // Only make clickable if there's a real URL (not "#" placeholder for PDFs/no-url sources)
+                                const hasRealUrl = href && href !== "#" && !href.startsWith("file://");
+                                return hasRealUrl ? (
+                                  <a href={href} target="_blank" rel="noopener noreferrer" className="no-underline cursor-pointer">
+                                    {badge}
+                                  </a>
+                                ) : badge;
+                              }
+                              return (
                                 <a href={href} target="_blank" rel="noopener noreferrer"
                                   style={{ color: "#e85c2a" }} className="underline hover:opacity-80">
                                   {children}

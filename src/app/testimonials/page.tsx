@@ -1,13 +1,19 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useSession, signIn, signOut } from "next-auth/react";
 import Link from "next/link";
 import {
   Sparkles, Send, Loader2, Building2, Briefcase,
   Quote, ShieldCheck, Users, TrendingUp, Pencil, Trash2, X, Check, Plus,
   Github, Linkedin, Mail, LogOut, User, MessageSquareDot,
-  ThumbsUp, ChevronLeft, ChevronRight,
+  ThumbsUp, ChevronLeft, ChevronRight, ChevronDown, LogIn,
 } from "lucide-react";
+
+const SOCIAL_LINKS = [
+  { href: "https://github.com/ArunKarthik05", icon: Github, label: "GitHub" },
+  { href: "https://www.linkedin.com/in/arun-karthik-3b08b5218/", icon: Linkedin, label: "LinkedIn" },
+  { href: "mailto:ak05032k2@gmail.com", icon: Mail, label: "Email" },
+];
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const PAGE_SIZE = 10;
@@ -396,8 +402,22 @@ export default function TestimonialsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
   const [voterId, setVoterId] = useState("");
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
@@ -501,6 +521,8 @@ export default function TestimonialsPage() {
       {/* ── Sticky nav ──────────────────────────────────────── */}
       <header className="shrink-0 z-20 sticky top-0 flex items-center justify-between px-4 sm:px-6 py-3"
         style={{ background: "#ffffff", borderBottom: "1px solid #ede8e2" }}>
+
+        {/* Left: logo → home */}
         <Link href="/" className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center"
             style={{ background: "linear-gradient(135deg,#e85c2a,#f07a50)" }}>
@@ -512,6 +534,7 @@ export default function TestimonialsPage() {
           </div>
         </Link>
 
+        {/* Center: Back to Chat — desktop only */}
         <Link href="/"
           className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95"
           style={{ background: "linear-gradient(135deg,#e85c2a,#f07a50)", boxShadow: "0 0 0 3px rgba(232,92,42,0.15), 0 4px 14px rgba(232,92,42,0.35)" }}>
@@ -519,22 +542,25 @@ export default function TestimonialsPage() {
           Back to Chat
         </Link>
 
+        {/* Right */}
         <div className="flex items-center gap-1">
-          {[
-            { href: "https://github.com/ArunKarthik05", icon: Github, label: "GitHub" },
-            { href: "https://www.linkedin.com/in/arun-karthik-3b08b5218/", icon: Linkedin, label: "LinkedIn" },
-            { href: "mailto:ak05032k2@gmail.com", icon: Mail, label: "Email" },
-          ].map(({ href, icon: Icon, label }) => (
-            <a key={label} href={href} target={href.startsWith("http") ? "_blank" : undefined}
-              rel="noopener noreferrer" aria-label={label}
-              className="hidden sm:flex p-2 rounded-lg transition-all" style={{ color: "#9e8876" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#e85c2a"; (e.currentTarget as HTMLElement).style.background = "#fff2ec"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#9e8876"; (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-              <Icon size={15} />
-            </a>
-          ))}
-          {status !== "loading" && session && (
-            <div className="flex items-center gap-2 ml-1 pl-2" style={{ borderLeft: "1px solid #ede8e2" }}>
+
+          {/* Desktop: social icon buttons */}
+          <div className="hidden sm:flex items-center gap-1">
+            {SOCIAL_LINKS.map(({ href, icon: Icon, label }) => (
+              <a key={label} href={href} target={href.startsWith("http") ? "_blank" : undefined}
+                rel="noopener noreferrer" aria-label={label}
+                className="p-2 rounded-lg transition-all" style={{ color: "#9e8876" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#e85c2a"; (e.currentTarget as HTMLElement).style.background = "#fff2ec"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#9e8876"; (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                <Icon size={15} />
+              </a>
+            ))}
+          </div>
+
+          {/* Desktop: user avatar + sign-out */}
+          {status !== "loading" && session ? (
+            <div className="hidden sm:flex items-center gap-2 ml-1 pl-2" style={{ borderLeft: "1px solid #ede8e2" }}>
               {session.user?.image ? (
                 <img src={session.user.image} alt="avatar" className="w-7 h-7 rounded-full"
                   style={{ border: "2px solid rgba(232,92,42,0.3)" }} />
@@ -551,7 +577,95 @@ export default function TestimonialsPage() {
                 <LogOut size={14} />
               </button>
             </div>
+          ) : (
+            /* Desktop: login button when not signed in */
+            status !== "loading" && (
+              <button
+                onClick={() => signIn()}
+                className="hidden sm:flex items-center gap-1.5 ml-1 pl-2 py-1.5 pr-3 rounded-lg text-xs font-semibold transition-all"
+                style={{ borderLeft: "1px solid #ede8e2", color: "#e85c2a" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#fff2ec"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <LogIn size={14} /> Login
+              </button>
+            )
           )}
+
+          {/* Mobile: dropdown trigger */}
+          <div className="sm:hidden relative" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen(o => !o)}
+              className="flex items-center gap-1 p-1.5 rounded-lg"
+              style={{ color: "#9e8876" }}
+              aria-label="More options"
+            >
+              {session?.user?.image ? (
+                <img src={session.user.image} alt="avatar"
+                  className="w-7 h-7 rounded-full" style={{ border: "2px solid rgba(232,92,42,0.3)" }} />
+              ) : (
+                <User size={17} />
+              )}
+              <ChevronDown size={13} style={{ transition: "transform 0.2s", transform: dropdownOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+            </button>
+
+            {/* Dropdown panel */}
+            {dropdownOpen && (
+              <div
+                className="absolute right-0 top-full mt-2 w-52 rounded-xl overflow-hidden shadow-lg z-50"
+                style={{ background: "#ffffff", border: "1px solid #ede8e2" }}
+              >
+                {/* Social links */}
+                <div className="px-2 py-2" style={{ borderBottom: "1px solid #ede8e2" }}>
+                  <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#9e8876" }}>Connect</p>
+                  {SOCIAL_LINKS.map(({ href, icon: Icon, label }) => (
+                    <a key={label} href={href}
+                      target={href.startsWith("http") ? "_blank" : undefined}
+                      rel="noopener noreferrer"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                      style={{ color: "#1a1209" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#fff2ec"; (e.currentTarget as HTMLElement).style.color = "#e85c2a"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#1a1209"; }}>
+                      <Icon size={15} style={{ color: "#e85c2a", flexShrink: 0 }} />
+                      {label}
+                    </a>
+                  ))}
+                </div>
+
+                {/* Auth row */}
+                <div className="px-2 py-2">
+                  {session ? (
+                    <>
+                      {session.user?.name && (
+                        <p className="px-3 py-1 text-xs truncate" style={{ color: "#9e8876" }}>{session.user.name}</p>
+                      )}
+                      <button
+                        onClick={() => { setDropdownOpen(false); signOut(); }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                        style={{ color: "#1a1209" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#fff2ec"; (e.currentTarget as HTMLElement).style.color = "#e85c2a"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#1a1209"; }}>
+                        <LogOut size={15} style={{ color: "#e85c2a", flexShrink: 0 }} />
+                        Sign out
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => { setDropdownOpen(false); signIn(); }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                      style={{ color: "#1a1209" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#fff2ec"; (e.currentTarget as HTMLElement).style.color = "#e85c2a"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#1a1209"; }}>
+                      <LogIn size={15} style={{ color: "#e85c2a", flexShrink: 0 }} />
+                      Login
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
         </div>
       </header>
 
