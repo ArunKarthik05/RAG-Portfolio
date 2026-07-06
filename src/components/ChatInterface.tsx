@@ -44,12 +44,13 @@ function normalizeSources(content: string): string {
 
 function linkifySources(content: string, citations: CitationChunk[]): string {
   const normalized = normalizeSources(content);
-  // Always produce a markdown link so the `a` renderer fires for every [SOURCE N].
-  // Sources without a real URL get href="#" (badge renders but doesn't navigate).
-  return normalized.replace(/\[SOURCE (\d+)\]/g, (match, num) => {
+  return normalized.replace(/\[SOURCE (\d+)\]/g, (_match, num) => {
     const idx = parseInt(num, 10) - 1;
     const url = citations[idx]?.source_url;
-    return `[${match}](${url || "#"})`;
+    // Use bracket-free link text "SOURCE N" to avoid double-bracket Markdown artifacts.
+    // file:// paths are local and un-navigable — treat same as no URL.
+    const href = url && !url.startsWith("file://") ? url : "#";
+    return `[SOURCE ${num}](${href})`;
   });
 }
 
@@ -398,17 +399,18 @@ export function ChatInterface({
                           components={{
                             a: ({ href, children }) => {
                               const label = String(children);
-                              const isSource = label.startsWith("[SOURCE");
+                              // linkifySources emits "SOURCE N" (no brackets) as link text
+                              const isSource = /^SOURCE \d+$/.test(label);
                               if (isSource) {
                                 const badge = (
                                   <span
                                     className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold transition-all hover:opacity-80"
                                     style={{ background: "rgba(232,92,42,0.12)", color: "#c04a18", border: "1px solid rgba(232,92,42,0.3)" }}
                                   >
-                                    {label}
+                                    [{label}]
                                   </span>
                                 );
-                                // Only make clickable if there's a real URL (not "#" placeholder for PDFs/no-url sources)
+                                // Only link if there's a real navigable URL
                                 const hasRealUrl = href && href !== "#" && !href.startsWith("file://");
                                 return hasRealUrl ? (
                                   <a href={href} target="_blank" rel="noopener noreferrer" className="no-underline cursor-pointer">
